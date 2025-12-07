@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Wheel of Fortune — Blue Glass Edition</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600&display=swap" rel="stylesheet">
+
+<style>
+body {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 100vh;
+  background-image: url('4.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  font-family: 'Poppins', sans-serif;
+  color: #003a63;
+  padding: 40px 0;
+}
+
+h1 {
+  font-family: 'Fredoka One', cursive;
+  font-size: 52px;
+  color: #f0f9ff;
+  text-shadow: 0 0 10px rgba(0, 100, 200, 0.8), 0 0 20px rgba(255,255,255,0.7);
+  margin-bottom: 25px;
+  animation: float 3s ease-in-out infinite;
+}
+
+.container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px;
+  background: rgba(255,255,255,0.45);
+  backdrop-filter: blur(20px);
+  border-radius: 30px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+/* стрелка */
+.arrow {
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  transform: translateX(-50%) rotate(0deg);
+  width: 0;
+  height: 0;
+  border-left: 20px solid transparent;
+  border-right: 20px solid transparent;
+  border-top: 35px solid #ffffff;
+  filter: drop-shadow(0 0 8px rgba(80, 180, 255, 0.9))
+          drop-shadow(0 0 15px rgba(80, 180, 255, 0.6))
+          drop-shadow(0 0 25px rgba(120, 200, 255, 0.4));
+  z-index: 10;
+  animation: sway 2s ease-in-out infinite;
+  transition: filter 0.3s ease;
+}
+
+.arrow:hover {
+  filter: drop-shadow(0 0 12px rgba(100,200,255,1))
+          drop-shadow(0 0 25px rgba(120,220,255,0.9))
+          drop-shadow(0 0 45px rgba(150,230,255,0.8));
+}
+
+/* canvas */
+#wheel {
+  border-radius: 50%;
+  background: radial-gradient(circle at center, #e6f7ff 0%, #8dc8ff 70%, #007fe0 100%);
+  box-shadow:
+    inset 0 0 40px rgba(255,255,255,0.6),
+    0 0 25px rgba(0,120,255,0.6),
+    0 10px 25px rgba(0,0,0,0.25);
+  border: 6px solid rgba(255,255,255,0.6);
+}
+
+/* кнопки и поле */
+#code-box {
+  margin-top: 25px;
+  padding: 25px;
+  background: rgba(255,255,255,0.45);
+  backdrop-filter: blur(20px);
+  border-radius: 20px;
+  text-align: center;
+  width: 340px;
+  box-shadow: 0 5px 25px rgba(0,0,0,0.2);
+}
+
+#code-box h3 {
+  font-family: 'Fredoka One', cursive;
+  font-size: 23px;
+  color: #007fe0;
+  margin-top: 0;
+  margin-bottom: 15px;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+  letter-spacing: 1px;
+}
+
+input {
+  width: 80%;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.5);
+  background: rgba(255,255,255,0.25);
+  color: #003a63;
+  font-size: 16px;
+  text-align: center;
+  outline: none;
+}
+button {
+  margin-top: 15px;
+  padding: 12px 24px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #5bb6ff, #1d8fe8);
+  color: #fff;
+  font-size: 18px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 6px 15px rgba(0,0,0,0.2);
+  transition: 0.3s;
+}
+button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.25);
+}
+#status { margin-top: 10px; font-weight: 500; }
+
+/* админ-панель */
+#admin-panel {
+  margin-top: 40px;
+  padding: 20px;
+  width: 380px;
+  background: rgba(255,255,255,0.4);
+  backdrop-filter: blur(20px);
+  border-radius: 25px;
+  display: none;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+}
+#codes-list, #used-list {
+  background: rgba(255,255,255,0.3);
+  border-radius: 10px;
+  padding: 10px;
+  max-height: 150px;
+  overflow-y: auto;
+  text-align: left;
+  border: 1px solid rgba(255,255,255,0.5);
+  margin-bottom: 10px;
+  color: #003a63;
+  font-size: 14px;
+}
+
+/* === ВСПЛЫВАЮЩЕЕ ОКНО ПОБЕДЫ === */
+#win-popup {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 20, 60, 0.5);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  animation: fadeIn 0.5s ease forwards;
+}
+
+.popup-content {
+  background: rgba(200, 235, 255, 0.8);
+  border-radius: 25px;
+  padding: 40px 60px;
+  text-align: center;
+  box-shadow:
+    0 0 20px rgba(0, 100, 200, 0.9),
+    0 0 60px rgba(0, 150, 255, 0.7);
+  backdrop-filter: blur(15px);
+  transform: scale(0.95);
+  animation: popIn 0.6s ease forwards;
+}
+
+.popup-content h2 {
+  color: #0066cc;
+  font-size: 52px;
+  margin: 0 0 20px 0;
+  text-shadow: 0 0 12px rgba(180,220,255,0.9);
+  font-family: 'Fredoka One', cursive;
+}
+
+.popup-content p {
+  color: #003366;
+  font-size: 32px;
+  font-family: 'Fredoka One', cursive;
+  margin-bottom: 45px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+#try-again-btn {
+  padding: 14px 32px;
+  font-size: 18px;
+  border: none;
+  border-radius: 15px;
+  background: linear-gradient(135deg, #007fff, #64c3ff);
+  color: white;
+  cursor: pointer;
+  box-shadow: 0 0 20px rgba(0,150,255,0.7);
+  transition: all 0.3s ease;
+}
+
+#try-again-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 30px rgba(100,200,255,0.9);
+}
+
+/* анимации */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+@keyframes sway {
+  0%, 100% { transform: translateX(-50%) rotate(0deg); }
+  50% { transform: translateX(-50%) rotate(-6deg); }
+}
+@keyframes fadeIn {
+  from {opacity: 0;}
+  to {opacity: 1;}
+}
+@keyframes popIn {
+  0% {transform: scale(0.8);}
+  100% {transform: scale(1);}
+}
+</style>
+</head>
+<body>
+
+<h1>🦋Wheel of Fortune🦋</h1>
+
+<div class="container">
+  <div class="arrow"></div>
+  <canvas id="wheel" width="400" height="400"></canvas>
+
+  <div id="code-box">
+    <h3>👉Enter your lucky code👈</h3>
+    <input id="code-input" type="text" placeholder="Are you ready?">
+    <button onclick="activateCode()">🩵SPIN🩵</button>
+    <p id="status"></p>
+  </div>
+</div>
+
+<!-- ВСПЛЫВАЮЩЕЕ ОКНО ПОБЕДЫ -->
+<div id="win-popup">
+  <div class="popup-content">
+    <h2>You Win!</h2>
+    <p id="win-result">Your prize appears here.</p>
+    <button id="try-again-btn" onclick="closePopup()">💦Let’s try again?💦</button>
+  </div>
+</div>
+
+<div id="admin-panel">
+  <h2>Админ-панель</h2>
+  <button onclick="generateCodes()">Создать новые коды</button>
+  <button onclick="clearUsed()">Очистить использованные</button>
+  <button onclick="clearAll()">Удалить все коды</button>
+
+  <h3>Доступные коды</h3>
+  <div id="codes-list"></div>
+
+  <h3>Использованные коды</h3>
+  <div id="used-list"></div>
+</div>
+
+<script>
+let codes = JSON.parse(localStorage.getItem("codes") || "[]");
+let used = JSON.parse(localStorage.getItem("used") || "[]");
+let currentCode = null;
+
+const canvas = document.getElementById("wheel");
+const ctx = canvas.getContext("2d");
+const center = canvas.width / 2;
+const radius = center;
+const values = ["Pussy","Tits","Sexting","Custom","Striptease","Anal","Masturbation","Video chat","Dildoplay","Blowjob"];
+const count = values.length;
+
+drawWheel();
+
+function drawWheel() {
+  const angleStep = (2 * Math.PI) / count;
+  for (let i = 0; i < count; i++) {
+    const start = i * angleStep;
+    const end = start + angleStep;
+    const grad = ctx.createLinearGradient(center - radius / 2, 0, center + radius, 0);
+    grad.addColorStop(0, i % 2 ? '#5aaeff' : '#7fc8ff');
+    grad.addColorStop(1, i % 2 ? '#8fd3ff' : '#64baff');
+
+    ctx.beginPath();
+    ctx.moveTo(center, center);
+    ctx.arc(center, center, radius - 6, start, end);
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.closePath();
+
+    ctx.save();
+    ctx.translate(center, center);
+    ctx.rotate(start + angleStep / 2);
+    ctx.fillStyle = '#041A2F';
+    ctx.font = '600 22px "Baloo 2", sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(values[i], radius - 40, 8);
+    ctx.restore();
+  }
+}
+
+let spinning = false;
+let rotation = 0;
+
+// добавь эти настройки рядом с другими переменными
+const FULL_ROTATIONS = 10;   // сколько полных оборотов делать
+const PNG_CORRECTION = -13;  // твоя скорректированная поправка (можно подправить)
+
+// обязательно явно ставим центр как origin (на всякий случай)
+canvas.style.transformOrigin = "50% 50%";
+
+function spin() {
+  if (spinning) return;
+  spinning = true;
+
+  let result = currentCode?.result;
+  if (!result) {
+    const randomIndex = Math.floor(Math.random() * values.length);
+    result = values[randomIndex];
+  }
+
+  const targetIndex = values.indexOf(result);
+  if (targetIndex === -1) {
+    console.error("Result not found in values:", result);
+    // fallback
+    spinning = false;
+    return;
+  }
+
+  const anglePerSector = 360 / values.length;
+
+  // центр нужного сектора (в градусах, 0° — направо, угол растёт по часовой)
+  const sectorCenter = targetIndex * anglePerSector + anglePerSector / 2;
+
+  // --- КЛЮЧЕВАЯ ФОРМУЛА ---
+  // хотим, чтобы sectorCenter (после вращения) оказался в точке "вверху" = 270°
+  // finalRotation должен удовлетворять: (sectorCenter + finalRotation) % 360 == 270
+  // => finalRotation = 270 - sectorCenter  (добавим полные обороты и PNG_CORRECTION)
+  let finalRotation = FULL_ROTATIONS * 360 + (270 - sectorCenter) + PNG_CORRECTION;
+
+  // нормализуем для читаемости
+  const finalRotationNorm = ((finalRotation % 360) + 360) % 360;
+
+  console.log("spin() debug:",
+    { result, targetIndex, anglePerSector, sectorCenter, PNG_CORRECTION,
+      finalRotation, finalRotationNorm });
+
+  // применяем трансформацию
+  canvas.style.transition = "transform 5s cubic-bezier(.17,.67,.38,1.35)";
+  canvas.style.transform = `rotate(${finalRotation}deg)`;
+
+  // Через время окончания анимации проверим "посадку"
+  setTimeout(() => {
+    // угол, под которым "центр сектора" оказался визуально (0..359)
+    const landedAngle = ((sectorCenter + finalRotation) % 360 + 360) % 360;
+
+    // насколько близко к 270° (стрелка)
+    const delta = ((landedAngle - 270 + 540) % 360) - 180; // от -180..180
+
+    // вычислим какой сектор реально попал под стрелку (для отладки)
+    // сравним все сектор-центры, выберем ближайший к 270
+    let nearestIndex = 0;
+    let nearestDiff = 360;
+    for (let i = 0; i < values.length; i++) {
+      const c = i * anglePerSector + anglePerSector / 2;
+      const landed = ((c + finalRotation) % 360 + 360) % 360;
+      let d = Math.abs(((landed - 270 + 540) % 360) - 180);
+      if (d < nearestDiff) { nearestDiff = d; nearestIndex = i; }
+    }
+
+    console.log("spin() landed debug:",
+      { landedAngle, delta, nearestIndex, nearestDiff, expectedIndex: targetIndex });
+
+    // Показываем попап именно с result (как у тебя было)
+    showPopup(result);
+
+    if (currentCode) {
+      used.push({ code: currentCode.code, result });
+      localStorage.setItem("used", JSON.stringify(used));
+      updateLists();
+      currentCode = null;
+    }
+
+    spinning = false;
+  }, 5200);
+}
+
+
+function showPopup(prize) {
+  document.getElementById("win-result").innerText = "🎁 " + prize;
+  document.getElementById("win-popup").style.display = "flex";
+}
+function closePopup() {
+  document.getElementById("win-popup").style.display = "none";
+}
+
+function activateCode() {
+  const value = document.getElementById("code-input").value.trim().toUpperCase();
+  const status = document.getElementById("status");
+
+  // вход в админку
+  if (value === "ADMIN123") {
+    document.getElementById("admin-panel").style.display = "block";
+    status.innerText = "Админ-режим активирован ✔️";
+    updateLists();
+    return;
+  }
+
+  // поиск кода (объект с результатом)
+  const found = codes.find(c => c.code === value);
+  if (!found) {
+    status.innerText = "❌ Invalid or used code ❌";
+    return;
+  }
+
+  currentCode = found;
+  status.innerText = "Code accepted! 🌀 Let's spin it...";
+  spin();
+
+  // удаляем его из списка активных
+  codes = codes.filter(c => c.code !== value);
+  localStorage.setItem("codes", JSON.stringify(codes));
+}
+
+function generateCodes() {
+  const count = parseInt(prompt("Сколько кодов создать?"));
+  if (!count || count <= 0) return;
+  const newList = [];
+
+  for (let i = 0; i < count; i++) {
+    const code = Math.random().toString(36).substring(2,10).toUpperCase();
+    const result = prompt(`Введите результат для кода ${code}:`, "Lucky!");
+    const item = { code, result };
+    codes.push(item);
+    newList.push(`${code} — ${result}`);
+  }
+  localStorage.setItem("codes", JSON.stringify(codes));
+  alert("Созданы коды:\n" + newList.join("\n"));
+  updateLists();
+}
+
+function clearUsed() {
+  used = [];
+  localStorage.setItem("used", "[]");
+  updateLists();
+}
+
+function clearAll() {
+  codes = [];
+  used = [];
+  localStorage.setItem("codes","[]");
+  localStorage.setItem("used","[]");
+  updateLists();
+}
+
+function updateLists() {
+  document.getElementById("codes-list").innerText =
+    codes.length
+      ? codes
+          .map(item => `${item.code} — ${item.result}`)
+          .join("\n")
+      : "Пусто";
+
+  document.getElementById("used-list").innerText =
+    used.length
+      ? used
+          .map(item => `${item.code} — ${item.result}`)
+          .join("\n")
+      : "Пусто";
+}
+</script>
+</body>
+</html>
