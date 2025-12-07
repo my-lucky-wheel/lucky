@@ -431,31 +431,40 @@ button:hover {
   window.activateCode = activateCode;
 
   // ------------ ВРАЩЕНИЕ КОЛЕСА ------------
-  function spinWheel() {
-    if (spinning) return;
-    spinning = true;
+function spinWheel() {
+  if (spinning) return;
+  spinning = true;
 
-    let targetIndex = values.indexOf(currentPrize);
-    if (targetIndex === -1) {
-      targetIndex = Math.floor(Math.random() * values.length);
-    }
-
-    const anglePerSector = 360 / values.length;
-    const sectorCenter = targetIndex * anglePerSector + anglePerSector / 2;
-
-    // хотим, чтобы сектор оказался сверху под стрелкой (270°)
-    const fullTurns = 10;
-    const finalRotation = fullTurns * 360 + (270 - sectorCenter);
-
-    wheelCanvas.style.transition = "transform 5s cubic-bezier(.17,.67,.38,1.35)";
-    wheelCanvas.style.transform = `rotate(${finalRotation}deg)`;
-
-    setTimeout(() => {
-      spinning = false;
-      showPopup(currentPrize || values[targetIndex]);
-    }, 5200);
+  let targetIndex = values.indexOf(currentPrize);
+  if (targetIndex === -1) {
+    targetIndex = Math.floor(Math.random() * values.length);
   }
-</script>
 
+  const anglePerSector = 360 / values.length;
+  const sectorAngle = targetIndex * anglePerSector + anglePerSector / 2;
+
+  // сколько оборотов всегда делаем
+  const FULL_ROTATIONS = 10;
+
+  // финальный угол
+  const finalRotation = FULL_ROTATIONS * 360 + (270 - sectorAngle);
+
+  // --- СБРАСЫВАЕМ колесо к 0°, чтобы оно не начинало с предыдущего угла ---
+  wheelCanvas.style.transition = "none";
+  wheelCanvas.style.transform = "rotate(0deg)";
+
+  // запускаем через маленькую задержку
+  setTimeout(() => {
+    wheelCanvas.style.transition = "5s cubic-bezier(.17,.67,.38,1.35)";
+    wheelCanvas.style.transform = `rotate(${finalRotation}deg)`;
+  }, 20);
+
+  // показываем результат после завершения
+  setTimeout(() => {
+    spinning = false;
+    showPopup(currentPrize);
+  }, 5200);
+}
+</script>
 </body>
 </html>
