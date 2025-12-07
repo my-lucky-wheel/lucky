@@ -82,7 +82,7 @@ h1 {
   border: 6px solid rgba(255,255,255,0.6);
 }
 
-/* кнопки и поле */
+/* код + кнопки */
 #code-box {
   margin-top: 25px;
   padding: 25px;
@@ -144,7 +144,7 @@ button:hover {
   display: none;
   box-shadow: 0 10px 30px rgba(0,0,0,0.15);
 }
-#codes-list, #used-list {
+#codes-list {
   background: rgba(255,255,255,0.3);
   border-radius: 10px;
   padding: 10px;
@@ -157,7 +157,7 @@ button:hover {
   font-size: 14px;
 }
 
-/* === ВСПЛЫВАЮЩЕЕ ОКНО ПОБЕДЫ === */
+/* всплывающее окно */
 #win-popup {
   position: fixed;
   top: 0;
@@ -263,232 +263,199 @@ button:hover {
   </div>
 </div>
 
+<!-- АДМИН-ПАНЕЛЬ -->
 <div id="admin-panel">
   <h2>Админ-панель</h2>
-  <button onclick="generateCodes()">Создать новые коды</button>
-  <button onclick="clearUsed()">Очистить использованные</button>
-  <button onclick="clearAll()">Удалить все коды</button>
+  <button onclick="generateCode()">Создать новый код</button>
 
-  <h3>Доступные коды</h3>
+  <h3>Коды</h3>
   <div id="codes-list"></div>
-
-  <h3>Использованные коды</h3>
-  <div id="used-list"></div>
 </div>
 
-<script>
-let codes = JSON.parse(localStorage.getItem("codes") || "[]");
-let used = JSON.parse(localStorage.getItem("used") || "[]");
-let currentCode = null;
+<!-- FIREBASE + ЛОГИКА -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import {
+    getFirestore,
+    collection,
+    doc,
+    setDoc,
+    getDoc,
+    getDocs,
+    updateDoc
+  } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-const canvas = document.getElementById("wheel");
-const ctx = canvas.getContext("2d");
-const center = canvas.width / 2;
-const radius = center;
-const values = ["Pussy","Tits","Sexting","Custom","Striptease","Anal","Masturbation","Video chat","Dildoplay","Blowjob"];
-const count = values.length;
+  const firebaseConfig = {
+    apiKey: "AIzaSyDHccUpdFS9YCPArBtGoIMobSGggzj3T3Q",
+    authDomain: "lucky-wheel-7612a.firebaseapp.com",
+    projectId: "lucky-wheel-7612a",
+    storageBucket: "lucky-wheel-7612a.firebasestorage.app",
+    messagingSenderId: "15125075566",
+    appId: "1:15125075566:web:1fa4d2ea10503c7138387f",
+    measurementId: "G-RS5TLLWC0Z"
+  };
 
-drawWheel();
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const codesRef = collection(db, "codes");
 
-function drawWheel() {
-  const angleStep = (2 * Math.PI) / count;
-  for (let i = 0; i < count; i++) {
-    const start = i * angleStep;
-    const end = start + angleStep;
-    const grad = ctx.createLinearGradient(center - radius / 2, 0, center + radius, 0);
-    grad.addColorStop(0, i % 2 ? '#5aaeff' : '#7fc8ff');
-    grad.addColorStop(1, i % 2 ? '#8fd3ff' : '#64baff');
+  // ------------ РИСУЕМ КОЛЕСО ------------
+  const wheelCanvas = document.getElementById("wheel");
+  const ctx = wheelCanvas.getContext("2d");
+  const center = wheelCanvas.width / 2;
+  const radius = center;
 
-    ctx.beginPath();
-    ctx.moveTo(center, center);
-    ctx.arc(center, center, radius - 6, start, end);
-    ctx.fillStyle = grad;
-    ctx.fill();
-    ctx.closePath();
+  const values = [
+    "Pussy","Tits","Sexting","Custom","Striptease",
+    "Anal","Masturbation","Video chat","Dildoplay","Blowjob"
+  ];
+  const count = values.length;
 
-    ctx.save();
-    ctx.translate(center, center);
-    ctx.rotate(start + angleStep / 2);
-    ctx.fillStyle = '#041A2F';
-    ctx.font = '600 22px "Baloo 2", sans-serif';
-    ctx.textAlign = 'right';
-    ctx.fillText(values[i], radius - 40, 8);
-    ctx.restore();
+  function drawWheel() {
+    const angleStep = (2 * Math.PI) / count;
+    for (let i = 0; i < count; i++) {
+      const start = i * angleStep;
+      const end = start + angleStep;
+
+      const grad = ctx.createLinearGradient(center - radius / 2, 0, center + radius, 0);
+      grad.addColorStop(0, i % 2 ? '#5aaeff' : '#7fc8ff');
+      grad.addColorStop(1, i % 2 ? '#8fd3ff' : '#64baff');
+
+      ctx.beginPath();
+      ctx.moveTo(center, center);
+      ctx.arc(center, center, radius - 6, start, end);
+      ctx.fillStyle = grad;
+      ctx.fill();
+      ctx.closePath();
+
+      ctx.save();
+      ctx.translate(center, center);
+      ctx.rotate(start + angleStep / 2);
+      ctx.fillStyle = '#041A2F';
+      ctx.font = '600 22px "Baloo 2", sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(values[i], radius - 40, 8);
+      ctx.restore();
+    }
   }
-}
+  drawWheel();
 
-let spinning = false;
-let rotation = 0;
-
-// добавь эти настройки рядом с другими переменными
-const FULL_ROTATIONS = 10;   // сколько полных оборотов делать
-const PNG_CORRECTION = -13;  // твоя скорректированная поправка (можно подправить)
-
-// обязательно явно ставим центр как origin (на всякий случай)
-canvas.style.transformOrigin = "50% 50%";
-
-function spin() {
-  if (spinning) return;
-  spinning = true;
-
-  let result = currentCode?.result;
-  if (!result) {
-    const randomIndex = Math.floor(Math.random() * values.length);
-    result = values[randomIndex];
+  // ------------ POPUP ------------
+  function showPopup(prize) {
+    document.getElementById("win-result").innerText = "🎁 " + prize;
+    document.getElementById("win-popup").style.display = "flex";
   }
 
-  const targetIndex = values.indexOf(result);
-  if (targetIndex === -1) {
-    console.error("Result not found in values:", result);
-    // fallback
-    spinning = false;
-    return;
+  function closePopup() {
+    document.getElementById("win-popup").style.display = "none";
   }
+  window.closePopup = closePopup;
 
-  const anglePerSector = 360 / values.length;
+  // ------------ АДМИН: СОЗДАТЬ КОД ------------
+  async function generateCode() {
+    const code = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const prize = prompt(`Введите приз для кода ${code}:`, "Pussy");
 
-  // центр нужного сектора (в градусах, 0° — направо, угол растёт по часовой)
-  const sectorCenter = targetIndex * anglePerSector + anglePerSector / 2;
-
-  // --- КЛЮЧЕВАЯ ФОРМУЛА ---
-  // хотим, чтобы sectorCenter (после вращения) оказался в точке "вверху" = 270°
-  // finalRotation должен удовлетворять: (sectorCenter + finalRotation) % 360 == 270
-  // => finalRotation = 270 - sectorCenter  (добавим полные обороты и PNG_CORRECTION)
-  let finalRotation = FULL_ROTATIONS * 360 + (270 - sectorCenter) + PNG_CORRECTION;
-
-  // нормализуем для читаемости
-  const finalRotationNorm = ((finalRotation % 360) + 360) % 360;
-
-  console.log("spin() debug:",
-    { result, targetIndex, anglePerSector, sectorCenter, PNG_CORRECTION,
-      finalRotation, finalRotationNorm });
-
-  // применяем трансформацию
-  canvas.style.transition = "transform 5s cubic-bezier(.17,.67,.38,1.35)";
-  canvas.style.transform = `rotate(${finalRotation}deg)`;
-
-  // Через время окончания анимации проверим "посадку"
-  setTimeout(() => {
-    // угол, под которым "центр сектора" оказался визуально (0..359)
-    const landedAngle = ((sectorCenter + finalRotation) % 360 + 360) % 360;
-
-    // насколько близко к 270° (стрелка)
-    const delta = ((landedAngle - 270 + 540) % 360) - 180; // от -180..180
-
-    // вычислим какой сектор реально попал под стрелку (для отладки)
-    // сравним все сектор-центры, выберем ближайший к 270
-    let nearestIndex = 0;
-    let nearestDiff = 360;
-    for (let i = 0; i < values.length; i++) {
-      const c = i * anglePerSector + anglePerSector / 2;
-      const landed = ((c + finalRotation) % 360 + 360) % 360;
-      let d = Math.abs(((landed - 270 + 540) % 360) - 180);
-      if (d < nearestDiff) { nearestDiff = d; nearestIndex = i; }
+    if (!prize) {
+      alert("Приз обязателен");
+      return;
     }
 
-    console.log("spin() landed debug:",
-      { landedAngle, delta, nearestIndex, nearestDiff, expectedIndex: targetIndex });
+    await setDoc(doc(codesRef, code), {
+      prize,
+      used: false
+    });
 
-    // Показываем попап именно с result (как у тебя было)
-    showPopup(result);
+    alert(`Создан код:\n${code} → ${prize}`);
+    await loadCodes();
+  }
+  window.generateCode = generateCode;
 
-    if (currentCode) {
-      used.push({ code: currentCode.code, result });
-      localStorage.setItem("used", JSON.stringify(used));
-      updateLists();
-      currentCode = null;
+  // ------------ ЗАГРУЗКА СПИСКА КОДОВ В АДМИНКЕ ------------
+  async function loadCodes() {
+    const snapshot = await getDocs(codesRef);
+    let html = "";
+
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data();
+      html += `<div><b>${docSnap.id}</b> — ${data.prize} ${data.used ? "✔️ (used)" : ""}</div>`;
+    });
+
+    document.getElementById("codes-list").innerHTML = html || "Пусто";
+  }
+
+  // ------------ АКТИВАЦИЯ КОДА ПОЛЬЗОВАТЕЛЕМ ------------
+  let spinning = false;
+  let currentPrize = null;
+
+  async function activateCode() {
+    const value = document.getElementById("code-input").value.trim().toUpperCase();
+    const status = document.getElementById("status");
+
+    if (!value) {
+      status.innerText = "Введите код";
+      return;
     }
 
-    spinning = false;
-  }, 5200);
-}
+    // вход в админку
+    if (value === "ADMIN123") {
+      document.getElementById("admin-panel").style.display = "block";
+      await loadCodes();
+      status.innerText = "Admin mode activated ✔️";
+      return;
+    }
 
+    const docRef = doc(codesRef, value);
+    const snap = await getDoc(docRef);
 
-function showPopup(prize) {
-  document.getElementById("win-result").innerText = "🎁 " + prize;
-  document.getElementById("win-popup").style.display = "flex";
-}
-function closePopup() {
-  document.getElementById("win-popup").style.display = "none";
-}
+    if (!snap.exists()) {
+      status.innerText = "❌ Invalid code";
+      return;
+    }
 
-function activateCode() {
-  const value = document.getElementById("code-input").value.trim().toUpperCase();
-  const status = document.getElementById("status");
+    const data = snap.data();
 
-  // вход в админку
-  if (value === "ADMIN123") {
-    document.getElementById("admin-panel").style.display = "block";
-    status.innerText = "Админ-режим активирован ✔️";
-    updateLists();
-    return;
+    if (data.used) {
+      status.innerText = "⛔ This code has already been used";
+      return;
+    }
+
+    currentPrize = data.prize;
+    status.innerText = "Code accepted! 🌀 Spinning...";
+
+    // помечаем использованным
+    await updateDoc(docRef, { used: true });
+
+    spinWheel();
   }
+  window.activateCode = activateCode;
 
-const found = codes.find(c => c.code === value);
-if (!found) {
-    status.innerText = "❌ Invalid or used code ❌";
-    return;
-}
-// ВАЖНО: сохраняем код В ПАМЯТЬ перед вращением
-currentCode = { code: found.code, result: found.result };
-status.innerText = "Code accepted! 🌀 Let's spin it...";
-// удаляем код СРАЗУ (до вращения)
-codes = codes.filter(c => c.code !== value);
-localStorage.setItem("codes", JSON.stringify(codes));
-spin();
+  // ------------ ВРАЩЕНИЕ КОЛЕСА ------------
+  function spinWheel() {
+    if (spinning) return;
+    spinning = true;
 
+    let targetIndex = values.indexOf(currentPrize);
+    if (targetIndex === -1) {
+      targetIndex = Math.floor(Math.random() * values.length);
+    }
 
-  // удаляем его из списка активных
-  codes = codes.filter(c => c.code !== value);
-  localStorage.setItem("codes", JSON.stringify(codes));
-}
+    const anglePerSector = 360 / values.length;
+    const sectorCenter = targetIndex * anglePerSector + anglePerSector / 2;
 
-function generateCodes() {
-  const count = parseInt(prompt("Сколько кодов создать?"));
-  if (!count || count <= 0) return;
-  const newList = [];
+    // хотим, чтобы сектор оказался сверху под стрелкой (270°)
+    const fullTurns = 10;
+    const finalRotation = fullTurns * 360 + (270 - sectorCenter);
 
-  for (let i = 0; i < count; i++) {
-    const code = Math.random().toString(36).substring(2,10).toUpperCase();
-    const result = prompt(`Введите результат для кода ${code}:`, "Lucky!");
-    const item = { code, result };
-    codes.push(item);
-    newList.push(`${code} — ${result}`);
+    wheelCanvas.style.transition = "transform 5s cubic-bezier(.17,.67,.38,1.35)";
+    wheelCanvas.style.transform = `rotate(${finalRotation}deg)`;
+
+    setTimeout(() => {
+      spinning = false;
+      showPopup(currentPrize || values[targetIndex]);
+    }, 5200);
   }
-  localStorage.setItem("codes", JSON.stringify(codes));
-  alert("Созданы коды:\n" + newList.join("\n"));
-  updateLists();
-}
-
-function clearUsed() {
-  used = [];
-  localStorage.setItem("used", "[]");
-  updateLists();
-}
-
-function clearAll() {
-  codes = [];
-  used = [];
-  localStorage.setItem("codes","[]");
-  localStorage.setItem("used","[]");
-  updateLists();
-}
-
-function updateLists() {
-  document.getElementById("codes-list").innerText =
-    codes.length
-      ? codes
-          .map(item => `${item.code} — ${item.result}`)
-          .join("\n")
-      : "Пусто";
-
-  document.getElementById("used-list").innerText =
-    used.length
-      ? used
-          .map(item => `${item.code} — ${item.result}`)
-          .join("\n")
-      : "Пусто";
-}
 </script>
+
 </body>
 </html>
